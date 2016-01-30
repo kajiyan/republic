@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+
+	<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+	<script>
+		(function() {
+			'use strict';
+
+			document.addEventListener('DOMContentLoaded', function() {
+				// ----------------------------------------
+				/**
+			   * polyfillCanvasToBlob
+			   * @parem {Object} canvas - canvas Object
+			   * @parem {string} [type='image/png'] - 書き出す画像形式の文字列 'image/png' or'image/jpeg'
+			   * @parem {number} [_quality=1.0] - 書き出しのクオリティを0.0 〜 1.0 の数値を指定する
+			   * @parem {Promise} Promise を返す、resolveであればblob を返す
+			   */
+				function polyfillCanvasToBlob (canvas) {
+					var type = arguments.length <= 1 || arguments[1] === undefined ? 'image/png' : arguments[1];
+					var _quality = arguments.length <= 2 || arguments[2] === undefined ? 1.0 : arguments[2];
+
+					return new Promise(function(resolve, reject) {
+						if (typeof canvas.toBlob !== 'undefined' && canvas.toBlob !== null) {
+							canvas.toBlob(function(blob) {
+								resolve(blob);
+							}, type, _quality);
+						} else {
+							var i = 0,
+									tmp = canvas.toDataURL(type, _quality).split(','),
+									data = atob(tmp[1]),
+									len = data.length,
+									mime = tmp[0].split(':')[1].split(';')[0],
+									u8a = new Uint8Array(len);
+
+							for (i = 0; i < len; i++) {
+								u8a[i] = data.charCodeAt(i);
+							}
+							resolve(new Blob([u8a], { type: mime }));
+						}
+					});
+				}
+				// ----------------------------------------
+
+				var canvas = document.createElement('canvas');
+				canvas.width = 120;
+				canvas.height = 120;
+				document.body.appendChild(canvas);
+
+				var ctx = canvas.getContext('2d');
+				ctx.fillStyle = 'red';
+				ctx.fillRect(0, 0, 100, 100);
+				ctx.fillStyle = 'blue';
+				ctx.fillRect(10, 10, 100, 100);
+
+				var socket = io.connect('http://localhost:8000/experiments');
+
+				polyfillCanvasToBlob(canvas).then(function(blob) {
+					console.log(blob);
+					socket.emit('_binary', {blob: blob}, (data) => {});
+				});
+
+				socket.on('_binary', function(data) {
+					console.log('Receive _binary', data);
+					var img = document.createElement('img');
+					var blob = new Blob([data.buffer], {type: 'image/png'});
+					var blobURL = window.URL.createObjectURL(blob);
+
+					img.onload = function() {
+						window.URL.revokeObjectURL(blobURL);
+					};
+
+					img.src = blobURL;
+					document.body.appendChild(img);
+				});
+			}, false);
+		})();
+	</script>
+</head>
+<body>
+	<h1>index</h1>
+</body>
+</html>
