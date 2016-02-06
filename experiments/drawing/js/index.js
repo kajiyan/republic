@@ -144,7 +144,7 @@
       var defaults = {
         frameRate: 60,
         el: window,
-        coordinate: 'client' // or 'screen'
+        coordinate: 'offset' // 'client', 'screen', 'offset'
       };
 
       for (var key in defaults) {
@@ -152,6 +152,7 @@
       }
 
       _options = options;
+      console.log(_options);
 
       this.process;
       this.startTime    = 0;
@@ -218,6 +219,9 @@
     Gesture.prototype.handleEvent = function (e) {
       e.preventDefault();
 
+      this._x = e[_options.coordinate + 'X'];
+      this._y = e[_options.coordinate + 'Y'];
+
       switch (e.type) {
         case 'mousedown':
           this._isDragged = true;
@@ -227,8 +231,7 @@
           break;
       }
 
-      this._x = e[_options.coordinate + 'X'];
-      this._y = e[_options.coordinate + 'Y'];
+      
 
       // this.points.push({
       //   x: e[_options.coordinate + 'X'],
@@ -305,21 +308,23 @@
   document.addEventListener('DOMContentLoaded', function() {
     console.log('DOMContentLoaded');
 
-    var gesture = new Gesture();
-    var animator = new Animator({
-      frameRate: 12
-    });
-
-    var points = new Array();
-    var pointsIsInsert = false;
-    var pointsMax = 6 * animator.getFrameRate();
-    // console.log(points.length);
-
     var canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 480;
     canvas.style.backgroundColor = '#cccccc';
     document.body.appendChild(canvas);
+
+    var gesture = new Gesture({
+      el: canvas
+    });
+    var animator = new Animator({
+      frameRate: 60
+    });
+
+    var points = new Array();
+    var pointsMemory = new Array();
+    var pointsIsInsert = false;
+    var pointsMax = 6 * animator.getFrameRate();
 
     var ctx = canvas.getContext('2d');
     
@@ -339,6 +344,7 @@
         }
       } else {
         if (pointsIsInsert) {
+          pointsMemory = [].concat(points);
           pointsIsInsert = false;
         }
         // 後ろから配列を空にしていく
@@ -354,46 +360,35 @@
 
     animator.setDrawProcess(function() {
       ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      // ctx.save();
-      // ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
-      // ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      // ctx.restore();
 
+      // --------------------------------------------------
       ctx.save();
       ctx.beginPath();
-      ctx.fillStyle = 'rgba(0, 100, 0, 1.0)';
-      ctx.strokeStyle = 'rgba(100, 0, 0, 1.0)';
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = 2;
-      ctx.moveTo(0, 0);
-      ctx.lineTo(ctx.canvas.width, ctx.canvas.height);
-
-      for (var offset = 1, i = offset, len = points.length; i < len; i++) {
-        // if (i === offset) {
-        //  ctx.moveTo(points[i - offset].x, points[i - offset].y);
-        // }
-        // ctx.lineTo(points[i].x, points[i].y);
-
-        ctx.moveTo(points[0].x, points[0].y);
-        ctx.lineTo(points[i - offset].x, points[i - offset].y);
-        ctx.lineTo(points[i].x, points[i].y);
-        // ctx.lineTo(points[0].x, points[0].y);
-
+      ctx.fillStyle = 'rgba(0, 255, 0, 1.0)';
+      for (var offset = 1, i = offset, len = pointsMemory.length; i < len; i++) {
+        ctx.moveTo(pointsMemory[0].x, pointsMemory[0].y);
+        ctx.lineTo(pointsMemory[i - offset].x, pointsMemory[i - offset].y);
+        ctx.lineTo(pointsMemory[i].x, pointsMemory[i].y);
         ctx.closePath();
         ctx.fill();
       }
-
-      // ctx.closePath(); // サブパスを閉じる
-      // ctx.fill(); // サブパスを塗りつぶす
-      ctx.stroke(); // サブパスに線を引く
       ctx.restore();
 
-      // ctx.save();
-      // ctx.globalCompositeOperation = 'source-atop';
-      // ctx.fillStyle = 'rgba(0, 0, 0, 1.0)';
-      // ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-      // ctx.restore();
+      // --------------------------------------------------
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 0, 0, 1.0)';
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+
+      ctx.beginPath();
+      for (var offset = 1, i = offset, len = points.length; i < len; i++) {
+        ctx.moveTo(points[i - offset].x, points[i - offset].y);
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
     });
 
     animator.start();
