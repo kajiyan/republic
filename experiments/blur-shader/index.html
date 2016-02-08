@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>project</title>
+  <link rel="stylesheet" href="">
+  
+  <script src="js/gesture.js"></script>
+  <script src="../common/js/minMatrix.js"></script>
+  <script>
+  	(function() {
+      'use strict';
+
+      // --------------------------------------------------
+      var Shader = (function() {
+        // --------------------------------------------------
+        /**
+         * Shader
+         * @param {webGLContext} glCtx - webGLContext
+         */
+        function Shader(glCtx) {
+          console.log('[Shader] constructor');
+          if (typeof glCtx !== 'undefined' && glCtx !== null) {
+            this.glCtx = glCtx;
+          } else {
+            var error = new Error();
+            error.message = '[Shader] constructor | "glCtx" of the argument is required';
+            throw error;
+          }
+        }
+
+        // --------------------------------------------------
+        /**
+         * Shader#create
+         * ソースをコンパイルしてシェーダを生成する
+         * @param {string} selector - 取得するシェーダテキストのセレクターの文字列
+         * @return {WebGLShader}
+         */
+        Shader.prototype.create = function(selector) {
+          console.log('[Shader] create', selector);
+
+          var elShader = document.querySelector(selector),
+              shader;
+
+          if (typeof elShader !== 'undefined' && elShader !== null) {
+            // scriptタグのtype属性をチェック
+            switch(elShader.type) {
+              // 頂点シェーダの場合
+              case 'x-shader/x-vertex':
+                shader = this.glCtx.createShader(this.glCtx.VERTEX_SHADER);
+                break; 
+              // フラグメントシェーダの場合
+              case 'x-shader/x-fragment':
+                shader = this.glCtx.createShader(this.glCtx.FRAGMENT_SHADER);
+                break;
+              default:
+                return;
+            }
+
+            // 生成されたシェーダにソースを割り当てる
+            this.glCtx.shaderSource(shader, elShader.text);
+
+            // シェーダをコンパイルする
+            this.glCtx.compileShader(shader);
+
+            // シェーダが正しくコンパイルされているかチェック
+            if (this.glCtx.getShaderParameter(shader, this.glCtx.COMPILE_STATUS)) {
+              // 成功していたらシェーダを返す
+              return shader;
+            } else {
+              // 失敗したらエラーログ
+              var error = new Error();
+              error.message = this.glCtx.getShaderInfoLog(shader);
+              throw error;
+            }
+          } else {
+            return;
+          }
+        };
+
+        // --------------------------------------------------
+        /**
+         * Sarder#program
+         * プログラムオブジェクトの生成とリンク
+         * @param {WebGLShader} vs - 頂点シェーダ
+         * @param {WebGLShader} fs - フラグメントシェーダ
+         * @return {WebGLProgram}
+         */
+        Shader.prototype.program = function(vs, fs) {
+          console.log('[Shader] program');
+
+          // プログラムオブジェクトの作成
+          var program = this.glCtx.createProgram();
+
+          if (
+            (typeof vs !== 'undefined' && vs !== null) && 
+            (typeof fs !== 'undefined' && fs !== null)
+          ) {
+            // プログラムオブジェクトにシェーダを割り当てる
+            this.glCtx.attachShader(program, vs);
+            this.glCtx.attachShader(program, fs);
+
+            // シェーダをリンク
+            this.glCtx.linkProgram(program);
+
+            // シェーダのリンクが正しく行われたかチェック
+            if (this.glCtx.getProgramParameter(program, this.glCtx.LINK_STATUS)) {
+              //成功していたらプログラムオブジェクトを有効にする
+              this.glCtx.useProgram(program);
+
+              // プログラムオブジェクトを返す
+              return program;
+            } else {
+              var error = new Error();
+              error.message = this.glCtx.getProgramInfoLog(program);
+              throw error;
+            }
+          } else {
+            var error = new Error();
+            error.message = '[Shader] constructor | "vs" and "fs" of the argument is required';
+            throw error;
+          }
+        };
+
+        // --------------------------------------------------
+        /**
+         * Shader#createVBO
+         * VBO を生成する
+         * @return {WebGLBuffer}
+         */
+        Shader.prototype.createVBO = function(data) {
+          console.log('[Shader] createVBO');
+
+          // バッファオブジェクトの生成
+          var vbo = this.glCtx.createBuffer();
+
+          // バッファをバインドする
+          this.glCtx.bindBuffer(this.glCtx.ARRAY_BUFFER, vbo);
+
+          // バッファにデータをセット
+          this.glCtx.bufferData(this.glCtx.ARRAY_BUFFER, new Float32Array(data), this.glCtx.STATIC_DRAW);
+
+          // バッファのバインドを無効化
+          this.glCtx.bindBuffer(this.glCtx.ARRAY_BUFFER, null);
+
+          // 生成したVBO を返す
+          return vbo;
+        };
+
+        // --------------------------------------------------
+        /**
+         * Shader#setAttribute
+         * VBO をバインドして登録する
+         */
+        Shader.prototype.setAttribute = function(vbos) {
+          console.log('[Shader] setAttribute', vbos);
+
+          var key, vbo;
+
+          for (key in vbos) {
+            vbo = vbos[key];
+            
+            // バッファをバインドする
+            this.glCtx.bindBuffer(this.glCtx.ARRAY_BUFFER, vbo.body);
+
+            // attribute 属性のインデックスを使って、そのattribute 属性を有効にする
+            this.glCtx.enableVertexAttribArray(vbo.attribLocation);
+          
+            // attributeLocationを通知し登録する
+            this.glCtx.vertexAttribPointer(
+              vbo.attribLocation,
+              vbo.attribStride,
+              this.glCtx.FLOAT, false, 0, 0
+            );
+          }
+        };
+
+        // --------------------------------------------------
+        /**
+         * Shader#createIBO
+         * IBO を生成する
+         */
+        Shader.prototype.createIBO = function(data) {
+          // バッファオブジェクトの生成
+          var ibo = this.glCtx.createBuffer();
+
+          // バッファをバインドする
+          this.glCtx.bindBuffer(this.glCtx.ELEMENT_ARRAY_BUFFER, ibo);
+
+          // バッファにデータをセット
+          this.glCtx.bufferData(this.glCtx.ELEMENT_ARRAY_BUFFER, new Int16Array(data), this.glCtx.STATIC_DRAW);
+
+          // バッファのバインドを無効化
+          this.glCtx.bindBuffer(this.glCtx.ELEMENT_ARRAY_BUFFER, null);          
+
+          return ibo;
+        };
+
+        // --------------------------------------------------
+        /**
+         * Shader#createTexture
+         * Texture を生成する
+         * @param {string} src - 画像までのパス
+         */
+        Shader.prototype.createTexture = function(src) {
+          return new Promise((resolve, reject) => {
+            var img = new Image();
+
+            img.onload = () => {
+              // テクスチャオブジェクトの生成
+              var tex = this.glCtx.createTexture();
+
+              // テクスチャをバインドする
+              this.glCtx.bindTexture(this.glCtx.TEXTURE_2D, tex);
+
+              // テクスチャへイメージを適用
+              this.glCtx.texImage2D(this.glCtx.TEXTURE_2D, 0, this.glCtx.RGBA, this.glCtx.RGBA, this.glCtx.UNSIGNED_BYTE, img);
+
+              // ミニマップを生成
+              this.glCtx.generateMipmap(this.glCtx.TEXTURE_2D);
+
+              // テクスチャのバインドを無効化
+              this.glCtx.bindTexture(this.glCtx.TEXTURE_2D, null);
+
+              // 生成したテクスチャを返す
+              resolve(tex);
+            }
+
+            img.src = src;
+          });
+        };
+
+        return Shader;
+      })();
+      // --------------------------------------------------
+
+
+
+      // --------------------------------------------------
+      var Animator = (function() {
+        /**
+         * Animator
+         */
+        function Animator(options) {
+          console.log('[Animator]');
+
+          var defaults = {
+            frameRate: 60,
+            update: function() {},
+            draw: function() {}
+          };
+
+          for (var key in options) {
+            if (options.hasOwnProperty(key)) {
+              defaults[key] = options[key];
+            }
+          }
+
+          if (
+            (typeof defaults.frameRate === 'number' && defaults.frameRate > 0) && 
+            typeof defaults.update === 'function' &&
+            typeof defaults.update === 'function'
+          ) {
+            this.process;
+            this.startTime = 0;
+            this.oldFrame = 0
+            this.currentFrame = 0;
+            this.frameRate = defaults.frameRate;
+            this.updateProcess = defaults.update;
+            this.drawProcess = defaults.draw;
+          } else {
+            throw new Error('[Animator] constructor | "updateProcess" and "drawProcess" of the argument is required');
+          }
+        }
+
+        var _getTime = function() {
+          var now = window.perfomance &&(perfomance.now || perfomance.webkitNow || perfomance.mozNow || perfomance.msNow || perfomance.oNow);
+          return (now && now.cell(perfomance)) || (new Date().getTime());
+        };
+
+        /**
+         * Animator#update
+         */
+        Animator.prototype.update = function() {
+          // console.log('[Animator] update');
+          try {
+            this.process = window.requestAnimationFrame((function(_this) {
+              return function() {
+                _this.update(_this.updateProcess);
+              };
+            })(this));
+
+            this.currentFrame = Math.floor((_getTime() - this.startTime) / (1000 / this.frameRate) % 2);
+
+            if (this.currentFrame !== this.oldFrame) {
+              this.updateProcess();
+              this.drawProcess();
+            }
+
+            this.oldFrame = this.currentFrame;
+          } catch (e) {
+            console.error(e);
+            this.stop();
+          }
+        };
+
+        /**
+         * Animator#stop
+         */
+        Animator.prototype.stop = function() {
+          console.log('[Animator] stop');
+          window.cancelAnimationFrame(this.process);
+        };
+
+        return Animator;
+      })();
+      // --------------------------------------------------
+
+
+
+
+
+
+      document.addEventListener('DOMContentLoaded', function() {
+        // canvas エレメントを生成する
+        var canvas = document.createElement('canvas');
+        canvas.id = "js-canvas";
+        canvas.width = 64;
+        canvas.height = 64;
+        canvas.style.backgroundColor = "#cccccc";
+        document.body.appendChild(canvas);
+
+        var gesture = new Gesture({
+          frameRate: 30,
+          el: canvas
+        });
+
+        // コンテキストを取得する
+        var glCtx = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        
+
+        try {
+          var shader = new Shader(glCtx);
+
+          // var time = 0.0;
+          // var startTime = new Date().getTime();
+
+          // 頂点シェーダとフラグメントシェーダの生成
+          var vertexShader   = shader.create('#vs');
+          var fragmentShader = shader.create('#fs');
+
+          // プログラムオブジェクトの生成とリンク
+          var program = shader.program(vertexShader, fragmentShader);
+
+          // 頂点の位置情報 データ
+          var vertexPosition = [
+            // X,  Y,   Z
+            -1.0,  1.0,  0.0,
+             1.0,  1.0,  0.0,
+            -1.0, -1.0,  0.0,
+             1.0, -1.0,  0.0
+          ];
+
+          // 頂点の色情報 データ
+          var vertexColor = [
+            // R, G, B, A
+            1.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0,
+            1.0, 1.0, 1.0, 1.0
+          ];
+
+          // テクスチャ座標
+          var textureCoord = [
+            0.0, 0.0,
+            1.0, 0.0,
+            0.0, 1.0,
+            1.0, 1.0
+          ];
+
+          // 頂点のインデックスを格納する配列
+          var index = [
+            0, 1, 2,
+            1, 2, 3
+          ];
+
+          // VBO（頂点バッファ）の生成
+          var vbo = {
+            'position': { // 位置情報
+              body: shader.createVBO(vertexPosition),
+              attribLocation: glCtx.getAttribLocation(program, 'position'),
+              attribStride: 3 // xyz の3要素
+            },
+            'color': { // 色情報
+              body: shader.createVBO(vertexColor),
+              attribLocation: glCtx.getAttribLocation(program, 'color'),
+              attribStride: 4 // RGBA の3要素
+            },
+            'textureCoord': { // 色情報
+              body: shader.createVBO(textureCoord),
+              attribLocation: glCtx.getAttribLocation(program, 'textureCoord'),
+              attribStride: 2 // テクスチャ座標 2軸
+            }
+          }
+
+          // VBO をバインドして登録する
+          shader.setAttribute(vbo);
+
+          // IBO の生成
+          var ibo = shader.createIBO(index);
+
+          // IBO をバインドして登録する
+          glCtx.bindBuffer(glCtx.ELEMENT_ARRAY_BUFFER, ibo);
+
+          // uniformLocationの取得
+          var uniLocation = new Array();
+
+          uniLocation[0] = glCtx.getUniformLocation(program, 'time');
+          uniLocation[1] = glCtx.getUniformLocation(program, 'mouse');
+          uniLocation[2] = glCtx.getUniformLocation(program, 'resolution');
+          uniLocation[3] = glCtx.getUniformLocation(program, 'mvpMatrix');
+          uniLocation[4] = glCtx.getUniformLocation(program, 'texture0');
+          uniLocation[5] = glCtx.getUniformLocation(program, 'texture1');
+
+          // minMatrix.js を用いた行列関連処理
+          // matVI オブジェクトを生成する
+          var m = new matIV();
+
+          // 行列の生成と初期化
+          // 各種行列の生成と初期化
+          var mMatrix   = m.identity(m.create()); // モデル変換行列
+          var vMatrix   = m.identity(m.create()); // ビュー変換行列
+          var pMatrix   = m.identity(m.create()); // プロジェクション変換行列
+          var tmpMatrix = m.identity(m.create());
+          var mvpMatrix = m.identity(m.create()); // 最終座標変換行列
+
+          // ビュー座標変換行列
+          m.lookAt([0.0, 0.0, 5.0], [0, 0, 0], [0, 1, 0], vMatrix);
+
+          // プロジェクション座標変換行列
+          m.perspective(45, canvas.width / canvas.height, 0.1, 100, pMatrix);
+
+          // 各行列を掛け合わせ座標変換行列を完成させる
+          m.multiply(pMatrix, vMatrix, tmpMatrix);
+
+          // 深度テストを有効にする
+          glCtx.enable(glCtx.DEPTH_TEST);
+          glCtx.depthFunc(glCtx.LEQUAL);
+
+          var counter = 0;
+          var rad;;
+
+          // console.log(gesture.getX(), gesture.getY());
+          
+          Promise.all([
+            shader.createTexture('texture0.png'),
+            shader.createTexture('texture1.png')
+          ]).then(function(textures) {
+            var time;
+            var startTime = new Date().getTime();
+
+            var animator = new Animator({
+              frameRate: 60,
+              update: function() {
+                time = (new Date().getTime() - startTime) * 0.001;
+                rad = (counter % 360) * Math.PI / 180;
+                counter++;
+                // console.log(gesture.getX(), gesture.getY());
+              },
+              draw: function() {
+                // canvasを初期化する色を設定する
+                glCtx.clearColor(0.0, 0.0, 0.0, 1.0);
+
+                // canvasを初期化する際の深度を設定する
+                glCtx.clearDepth(1.0);
+
+                // canvasを初期化
+                glCtx.clear(glCtx.COLOR_BUFFER_BIT | glCtx.DEPTH_BUFFER_BIT);
+
+                glCtx.uniform1f(uniLocation[0], time);
+                glCtx.uniform2fv(uniLocation[1], [gesture.getX() / canvas.width, gesture.getY() / canvas.height]);
+                glCtx.uniform2fv(uniLocation[2], [canvas.width, canvas.height]);
+
+                // 有効にするテクスチャユニットを指定
+                glCtx.activeTexture(glCtx.TEXTURE0);
+                // テクスチャをバインドする
+                glCtx.bindTexture(glCtx.TEXTURE_2D, textures[0]);
+                // uniform変数にテクスチャを登録
+                glCtx.uniform1i(uniLocation[4], 0);
+
+                glCtx.activeTexture(glCtx.TEXTURE1);
+                glCtx.bindTexture(glCtx.TEXTURE_2D, textures[1]);
+                glCtx.uniform1i(uniLocation[5], 1);
+
+                m.identity(mMatrix);
+                m.rotate(mMatrix, rad, [0, 1, 0], mMatrix);
+                m.multiply(tmpMatrix, mMatrix, mvpMatrix);
+                glCtx.uniformMatrix4fv(uniLocation[3], false, mvpMatrix);
+
+                // インデックスを用いた描画命令
+                glCtx.drawElements(glCtx.TRIANGLES, index.length, glCtx.UNSIGNED_SHORT, 0);
+
+                glCtx.flush();
+              }
+            });
+            animator.update();
+          }).catch(function(error) {
+            console.log(error);
+          });
+
+        } catch (error) {
+          console.error(error);
+        }
+      }, false);
+    })();
+  </script>
+
+  
+  <!-- [[ 頂点シェーダ ]] -->
+  <script id="vs" type="x-shader/x-vertex">
+    attribute vec3 position;
+    attribute vec2 textureCoord;
+    varying vec2 vTextureCoord;
+
+    void main(void) {
+      vTextureCoord = textureCoord;
+      gl_Position = vec4(position, 1.0);
+    }
+
+    // attribute vec3 position;
+    // attribute vec4 color;
+    // attribute vec2 textureCoord;
+    // uniform mat4 mvpMatrix;
+    // varying vec4 vColor; // varying修飾子は頂点シェーダーとフラグメントシェーダの橋渡しをする
+    // varying vec2 vTextureCoord;
+
+    // void main(void) {
+    //   vColor        = color;
+    //   vTextureCoord = textureCoord;
+    //   gl_Position   = mvpMatrix * vec4(position, 1.0);
+    // }
+  </script>
+
+
+  <!-- [[ フラグメントシェーダ ]] -->
+  <script id="fs" type="x-shader/x-fragment">
+    precision mediump float;
+
+    uniform float time;
+    uniform vec2 mouse;
+    uniform vec2 resolution;
+    uniform sampler2D texture0;
+    uniform sampler2D texture1;
+    varying vec4      vColor;
+    varying vec2      vTextureCoord;
+
+    void main(void) {
+      // --------------------------------------------------
+      vec2 tFrag = vec2(1.0 / 64.0, -1.0 / 64.0);
+      // vec4 destColor0 = texture2D(texture0, vTextureCoord.xy * tFrag);
+      // vec4 destColor0 = texture2D(texture0, vTextureCoord);
+      vec4 destColor0 = texture2D(texture0, gl_FragCoord.st * tFrag);
+
+      destColor0 *= 0.36;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  1.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0,  1.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  1.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  0.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  0.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0, -1.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0, -1.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0, -1.0)) * tFrag) * 0.04;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0,  2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  1.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  1.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  0.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  0.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0, -1.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0, -1.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0, -2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0, -2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0, -2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0, -2.0)) * tFrag) * 0.02;
+      destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0, -2.0)) * tFrag) * 0.02;
+
+      gl_FragColor = destColor0;
+
+
+      // --------------------------------------------------
+      // vec2 tFrag = vec2(1.0 / 64.0);
+      // vec4 destColor0 = texture2D(texture0, gl_FragCoord.st * tFrag);
+
+      // destColor0 *= 0.36;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0,  1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  0.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  0.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0, -1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0, -1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0, -1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  0.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  0.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0, -1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0, -1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0, -2.0)) * tFrag) * 0.02;
+
+      // gl_FragColor = destColor0;
+
+
+
+      // --------------------------------------------------
+      // vec2 tFrag = vec2(1.0 / 256.0);
+      // vec4 destColor0 = texture2D(texture0, gl_FragCoord.st * tFrag);
+
+      // destColor0 *= 0.36;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0,  1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  0.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  0.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0, -1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0, -1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0, -1.0)) * tFrag) * 0.04;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0,  0.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0,  0.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0, -1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0, -1.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-2.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2(-1.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 0.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 1.0, -2.0)) * tFrag) * 0.02;
+      // destColor0 += texture2D(texture0, (gl_FragCoord.st + vec2( 2.0, -2.0)) * tFrag) * 0.02;
+
+      // gl_FragColor = destColor0;
+
+      // --------------------------------------------------
+      // vec4 smpColor0 = texture2D(texture0, vTextureCoord);
+      // vec4 smpColor1 = texture2D(texture1, vTextureCoord);
+      // gl_FragColor = smpColor0 * smpColor1;
+
+
+      // vec4 smpColor1 = texture2D(texture1, vTextureCoord);
+      // gl_FragColor = smpColor0 * smpColor1;
+
+      // vec2 m = vec2(mouse.x * 2.0 - 1.0, -mouse.y * 2.0 + 1.0);
+      // vec2 p = (gl_FragCoord.xy * 2.0 - resolution) / min(resolution.x, resolution.y);
+      // float t = sin(length(m - p) * 30.0 + time * 5.0);
+      // gl_FragColor = vec4(vec3(t), 1.0);
+
+      // vec4 smpColor0 = texture2D(texture0, vTextureCoord);
+      // vec4 smpColor1 = texture2D(texture1, vTextureCoord);
+      // gl_FragColor = vColor * smpColor0 * smpColor1;
+    }
+  </script>  
+
+
+</head>
+<body>
+  <!-- <canvas id="js-canvas"></canvas> -->
+</body>
+</html>
