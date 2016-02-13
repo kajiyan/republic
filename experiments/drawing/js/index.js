@@ -28,6 +28,9 @@
       frameRate: 24
     });
 
+    var filter = new Filter();
+    console.log(filter);
+
     var points = new Array();
     var pointsIsInsert = false;
     var pointsMax = 6 * animator.getFrameRate();
@@ -54,6 +57,16 @@
         compositeCtx.closePath();
         compositeCtx.fill();
       }
+
+      filter.filterRGB({
+        context: compositeCtx,
+        topX: 0,
+        topY: 0,
+        width: compositeCtx.canvas.width,
+        height: compositeCtx.canvas.height,
+        iterations: 3,
+        radius: 14
+      });
     });
 
     // --------------------------------------------------
