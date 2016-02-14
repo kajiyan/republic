@@ -8,12 +8,33 @@
 			var canvas = document.createElement('canvas');
 			canvas.width = image.width;
 			canvas.height = image.height;
+			// canvas.width = 30;
+			// canvas.height = 30;
 			canvas.style.backgroundColor = '#cccccc';
 			document.body.appendChild(canvas);
 
 			var ctx = canvas.getContext('2d');
 
 			ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+			// ctx.beginPath();
+			// ctx.fillStyle = 'rgba(100, 255, 200, 1.0)';
+			// ctx.rect(0, 0, ctx.canvas.width, ctx.canvas.height);
+			// ctx.fill();
+			// ctx.closePath();
+
+
+			// ctx.beginPath();
+			// ctx.fillStyle = 'rgba(1, 2, 3, 1.0)';
+			// var offset = -1;
+			// var skip = 8;
+			// for (var i = offset; i < ctx.canvas.width; i += skip) {
+			// 	for (var j = offset; j < ctx.canvas.height; j += skip ) {
+			// 		ctx.rect(i, j, 1, 1);
+			// 		ctx.fill();
+			// 	}
+			// }
+			// ctx.closePath();
 
 
 			var pixel = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -29,7 +50,7 @@
 
 			  for (var i = 0, len = e.data.composition.length; i < len; i++) {
 			  	var li = document.createElement('li');
-			  	li.style.width = e.data.composition[i][1].percentage * 2 + 'px';
+			  	li.style.width = e.data.composition[i][1].percentage + 'px';
 			  	li.style.height = '100px';
 			  	li.style.backgroundColor = 'rgb(' +
 			  		e.data.composition[i][1].r + ',' + 
@@ -45,9 +66,10 @@
 			// worker.postMessage(pixels);
 			worker.postMessage({
 				pixel: pixel,
+				limit: 10,
 				offset: 0,
-				minRatio: 0,
-				skip: 8
+				minRatio: 1,
+				skip: 10
 			});
 		}
 		image.src = 'images/test1.png';

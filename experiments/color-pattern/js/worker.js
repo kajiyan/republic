@@ -53,6 +53,7 @@
 			console.log('[PixelWorker] search', keyData);
 
 			var defaults = {
+				limit: 10,
 				offset: 0,
 				minRatio: 0,
 				skip: 1
@@ -83,14 +84,12 @@
 
 					var color = {
 						r: pixelData[i],
-						g: pixelData[i] + 1,
-						b: pixelData[i] + 2
+						g: pixelData[i + 1],
+						b: pixelData[i + 2]
 					}
 
 					for (var label in colorData) {
-						var result = _colorCompare(colorData[label], color);
-
-						if (result) {
+						if (_colorCompare(colorData[label], color)) {
 							// 近似色である場合
 							// カウンターに加算する
 							colorData[label].percentage += 1; 
@@ -109,6 +108,7 @@
 			for (key in colorData) {
 				var color = colorData[key];
 				var percentage = Math.round(color.percentage / sampleSize * 100);
+				// var percentage = Math.round(color.percentage / sampleSize * 100);
 				// サンプリングしたピクセル数に対してminRatio 以下であれば結果に含めない
 				if (percentage > options.minRatio) {
 					color.percentage = percentage;
