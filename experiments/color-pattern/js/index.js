@@ -1,6 +1,10 @@
 (function() {
 	'use strict';
 
+	var a = [0, 1, 2, 3], b = [4, 5, 6, 7];
+	[].push.apply(a, b, b);
+	console.log(a, b);
+
 	document.addEventListener('DOMContentLoaded', function() {
 		var image = new Image();
 
@@ -45,22 +49,22 @@
 			worker.addEventListener('message', function(e) {
 			  console.log('Worker said: ', e.data);
 
-			  var elUl = document.querySelector('#color-ul');
-			  var fragment = document.createDocumentFragment();
+				var elUl = document.querySelector('#color-ul');
+				var fragment = document.createDocumentFragment();
 
-			  for (var i = 0, len = e.data.composition.length; i < len; i++) {
-			  	var li = document.createElement('li');
-			  	li.style.width = e.data.composition[i][1].percentage + 'px';
-			  	li.style.height = '100px';
-			  	li.style.backgroundColor = 'rgb(' +
-			  		e.data.composition[i][1].r + ',' + 
-			  		e.data.composition[i][1].g + ',' + 
-			  		e.data.composition[i][1].b + ')';
+				for (var i = 0, len = e.data.composition.length; i < len; i++) {
+					var li = document.createElement('li');
+					li.style.width = e.data.composition[i][1].ratio + 'px';
+					li.style.height = '100px';
+					li.style.backgroundColor = 'rgb(' +
+						e.data.composition[i][1].r + ',' + 
+						e.data.composition[i][1].g + ',' + 
+						e.data.composition[i][1].b + ')';
 					li.style.listStyleType = 'none';
-			  	li.style.float = 'left';
-			  	fragment.appendChild(li);
-			  }
-			  elUl.appendChild(fragment);
+					li.style.float = 'left';
+					fragment.appendChild(li);
+				}
+				elUl.appendChild(fragment);
 			}, false);
 
 			// worker.postMessage(pixels);
@@ -69,7 +73,7 @@
 				limit: 10,
 				offset: 0,
 				minRatio: 1,
-				skip: 10
+				skip: 20
 			});
 		}
 		image.src = 'images/test1.png';

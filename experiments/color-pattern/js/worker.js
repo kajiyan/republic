@@ -47,7 +47,7 @@
 		 * PixelWorker#search
 		 * @return {Object} -
 		 * 	index: { c255255255: 10, ... }
-		 * 	composition: [['c255255255', [r: 255, g: 255, b: 255, percentage: 10]]...]
+		 * 	composition: [['c255255255', [r: 255, g: 255, b: 255, ratio: 10]]...]
 		 */
 		PixelWorker.prototype.search = function(keyData) {
 			console.log('[PixelWorker] search', keyData);
@@ -75,7 +75,7 @@
 				r: pixelData[0],
 				g: pixelData[1],
 				b: pixelData[2],
-				percentage: 0
+				ratio: 0
 			};
 			
 			for (var x = options.offset, w = options.pixel.width; x < w; x += options.skip) {
@@ -92,35 +92,70 @@
 						if (_colorCompare(colorData[label], color)) {
 							// 近似色である場合
 							// カウンターに加算する
-							colorData[label].percentage += 1; 
+							colorData[label].ratio += 1; 
 						} else {
 							// 近似色でない場合
 							// 新たにインデックスを追加する
-							color.percentage = 0;
+							color.ratio = 0;
 							colorData['c' + ((color.r * 1000000) + (color.g * 1000) + color.b)] = color;
 						}
 					}
 				}
 			}
 
-
-			var composition = [];
+			
+			var colors = {
+				base: [],
+				sub: [],
+				key: []
+			};
+			var type;
+			var baseBorder = 15 + options.minRatio;
+			var subBorder  = 10 + options.minRatio;
+			var keyBorder  = 1 + options.minRatio;
 			for (key in colorData) {
 				var color = colorData[key];
-				var percentage = Math.round(color.percentage / sampleSize * 100);
-				// var percentage = Math.round(color.percentage / sampleSize * 100);
+				var ratio = (0.5 + (color.ratio / sampleSize * 100)) | 0;
 				// サンプリングしたピクセル数に対してminRatio 以下であれば結果に含めない
-				if (percentage > options.minRatio) {
-					color.percentage = percentage;
-					composition.push([key, color]);
+				if (ratio > options.minRatio) {
+					if (ratio > baseBorder) {
+						type = 'base';
+					} else if (ratio <= keyBorder) {
+						type = 'key';
+					} else if (ratio <= subBorder) {
+						type = 'sub';
+					} else {
+						continue;
+					}
+
+					var len = colors[type].length;
+					if (len < options.limit) {
+						colors[type].push([key, color]);
+					} else {
+						for (var i = 0; i < len; i++) {
+							if (colors[type][i][1].ratio < color.ratio) {
+								colors[type][i] = [key, color];
+								break;
+							}
+						}
+					}
 				} else {
 					continue;
 				}
 			}
 
+
+			// 選択された色情報を一つの配列に結合、ソートする
+			var composition = [];
+			var push = Array.prototype.push;
+			
+			push.apply(composition, colors.base);
+			push.apply(composition, colors.sub);
+			push.apply(composition, colors.key);
+
 			composition.sort(function(color0, color1) {
-				if (color0[1].percentage > color1[1].percentage) return -1;
-				if (color0[1].percentage < color1[1].percentage) return 1;
+				if (color0[1].ratio > color1[1].ratio) return -1;
+				if (color0[1].ratio < color1[1].ratio) return 1;
 				return 0;
 			});
 
