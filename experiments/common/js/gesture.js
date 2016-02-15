@@ -13,9 +13,11 @@ var Gesture = (function() {
     var defaults = {
       frameRate: 60,
       el: window,
+      holdThreshold: 40,
       coordinate: 'offset', // 'client', 'screen', 'offset'
       pointerDown: function() {},
-      pointerUp: function() {}
+      pointerUp: function() {},
+      pointerDownHold: function() {}
     };
 
     for (var key in defaults) {
@@ -87,11 +89,34 @@ var Gesture = (function() {
     switch (e.type) {
       case 'mousedown':
         this._isDragged = true;
-        _options.pointerDown({
+        
+        var point = {
           x: this._x,
           y: this._y,
           button: e.button
-        });
+        };
+
+        _options.pointerDown(point);
+
+        this.holdTimer = setTimeout((function(_this) {
+          return function() {
+            var dx = point.x - _this._x,
+                dy = point.y - _this._y;
+
+            var diff = Math.sqrt((dx * dx) + (dy * dy));
+
+            // ボタンを押し続けた状態で、特定の移動量以内の場合であれば
+            // pointerDownHold イベントを発火させる
+            if (_this._isDragged && diff <= _options.holdThreshold) {
+              _options.pointerDownHold();
+              _this.trigger('pointerDownHold', {
+                x: _this._x,
+                y: _this._y,
+                button: e.button
+              });
+            }
+          };
+        }(this)), 1000);
         break;
       case 'mouseup':
         this._isDragged = false;
@@ -100,6 +125,8 @@ var Gesture = (function() {
           y: this._y,
           button: e.button
         });
+
+        clearTimeout(this.holdTimer);
         break;
     }
   };
@@ -133,13 +160,30 @@ var Gesture = (function() {
 
   // --------------------------------------------------
   /**
-   * Gesture#setMouseUp
+   * Gesture#setPointerUp
    * @param {Function}
    */
   Gesture.prototype.setPointerUp = function(pointerUp) {
     _options.pointerUp = pointerUp;
   };
 
+  // --------------------------------------------------
+  /**
+   * Gesture#getPointerDownHold
+   * @return {Function}
+   */
+  Gesture.prototype.getPointerDownHold = function() {
+    return _options.pointerDownHold
+  };
+
+  // --------------------------------------------------
+  /**
+   * Gesture#setPointerDownHold
+   * @param {Function}
+   */
+  Gesture.prototype.setPointerDownHold = function(pointerDownHold) {
+    _options.pointerDownHold = pointerDownHold;
+  };
 
   // --------------------------------------------------    
   /**
@@ -200,7 +244,79 @@ var Gesture = (function() {
     return this._isDragged;
   };
 
+  // --------------------------------------------------
+  Gesture.prototype.on = function(event, callback) {
+    if (this._callbacks == null) {
+      this._callbacks = {};
+    }
+    
+    var events = event.split(' ');
 
+    for (var i = 0, len = events.length; i < len; i++) {
+      var base,
+          name = events[i];
+      (base = this._callbacks)[name] || (base[name] = []);
+      this._callbacks[name].push(callback);
+    }
+    
+    return this;
+  };
+
+  // --------------------------------------------------
+  Gesture.prototype.once = function(event, callback) {
+    this.on(event, function() {
+      this.off(event, arguments.callee);
+      return callback.apply(this, arguments);
+    });
+    return this;
+  };
+
+  // --------------------------------------------------
+  Gesture.prototype.trigger = function() {
+    var args = 1 <= arguments.length ? slice.call(arguments, 0) : [],
+        event = args.shift(),
+        list = this._callbacks != null ? this._callbacks[event] : void 0;
+
+    if (!list) return;
+
+    for (var i = 0, len = list.length; i < len; i++) {
+      callback = list[i];
+      if (callback.apply(this, args) === false) break;
+    }
+    return this;
+  };
+
+  // --------------------------------------------------
+  Gesture.prototype.off = function(event, callback) {
+    if (!event) {
+      this._callbacks = {};
+      return this;
+    }
+
+    var events = event.split(' ');
+    
+    for (var i = 0, len0 = events.length; i < len0; i++) {
+      var name = events[i]
+          list = this._callbacks != null ? this._callbacks[name] : void 0;
+      
+      if (list) {
+        if (callback) {
+          for (var j = k = 0, len1 = list.length; k < len1; j = ++k) {
+            cb = list[j];
+            if (!(cb === callback)) {
+              continue;
+            }
+            list = list.slice();
+            list.splice(j, 1);
+            this._callbacks[name] = list;
+          }
+        } else {
+          delete this._callbacks[name];
+        }
+      }
+    }
+    return this;
+  };
 
   return Gesture;
 })();
