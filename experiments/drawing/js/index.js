@@ -29,15 +29,15 @@
     });
 
     var filter = new Filter();
-    
-    gesture.on('pointerDownHold', function(e){
-      console.log('pointerDownHold', e);
-    });
 
     var points = new Array();
     var pointsIsInsert = false;
     var pointsMax = 6 * animator.getFrameRate();
     
+    gesture.on('pointerDownHold', function(e){
+      console.log('pointerDownHold', e);
+    });
+
     gesture.setPointerDown(function(e) {
       points.splice(0, points.length);
     });
@@ -83,7 +83,7 @@
 
     // --------------------------------------------------
     animator.setUpdateProcess(function() {
-      if (gesture.getIsDragged()) {
+      if (gesture.getIsDownHold() && gesture.getIsDragged()) {
         // 座標が変わっていれば配列に座標を記録させる
         var lastPoint = points[points.length - 1];
         if (typeof lastPoint === 'undefined' || lastPoint === null) {

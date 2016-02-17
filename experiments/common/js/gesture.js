@@ -36,6 +36,7 @@ var Gesture = (function() {
     this._px = 0; // ひとつ前のポインター x座標
     this._py = 0; // ひとつ前のポインター y座標
     this._isDragged = false; // ドラッグ状態であるか
+    this._isDownHold = false; // ポインターがダウンホールド状態であるか
 
     // 現在のポインター座標とひとつ前の座標を保持する配列
     this.points = [
@@ -108,6 +109,7 @@ var Gesture = (function() {
             // ボタンを押し続けた状態で、特定の移動量以内の場合であれば
             // pointerDownHold イベントを発火させる
             if (_this._isDragged && diff <= _options.holdThreshold) {
+              _this._isDownHold = true;
               _options.pointerDownHold();
               _this.trigger('pointerDownHold', {
                 x: _this._x,
@@ -120,6 +122,8 @@ var Gesture = (function() {
         break;
       case 'mouseup':
         this._isDragged = false;
+        this._isDownHold = false;
+
         _options.pointerUp({
           x: this._x,
           y: this._y,
@@ -242,6 +246,16 @@ var Gesture = (function() {
    */
   Gesture.prototype.getIsDragged = function() {
     return this._isDragged;
+  };
+
+  // --------------------------------------------------
+  /**
+   * getIsDownHold
+   * ポインターがダウンホールド状態であるかを返す
+   * @return {bool}
+   */
+  Gesture.prototype.getIsDownHold = function() {
+    return this._isDownHold;
   };
 
   // --------------------------------------------------
