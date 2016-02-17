@@ -5,6 +5,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <title>test</title>
   <!-- <link rel="stylesheet" href=""> -->
+  <script src="../common/js/greensock/uncompressed/TweenMax.js"></script>
+  <script src="../common/js/greensock/uncompressed/plugins/DrawSVGPlugin.js"></script>
+  <script src="../common/js/greensock/uncompressed/plugins/MorphSVGPlugin.js"></script>
+
   <script src="../common/js/eventEmitter.js"></script>
   <script src="../common/js/animator.js"></script>
   <script src="../common/js/gesture.js"></script>
@@ -17,11 +21,35 @@
 			margin: 0;
 		}
 		canvas {
-			margin: 10px;
 		}
+    canvas + canvas {
+      margin: 0 0 0 10px;
+    }
+    #svg-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 2147483647;
+      transform: translate(0px, 0px);
+      pointer-events: none;
+      will-change: transform;
+    }
   </style>
 </head>
+  <svg version="1.1" id="svg-progress" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="52px" height="52px" viewBox="0 0 52 52" xml:space="preserve">
+    <g id="ng">
+      <path id="ng-before" fill="none" stroke="#1AD4FF" stroke-width="2" stroke-miterlimit="10" d="M26,50.5L1.5,26L26,1.5L50.5,26 L26,50.5z"/>
+      <path id="ng-after" fill="none" stroke="#FF33E2" stroke-width="2" stroke-miterlimit="10" d="M26,50.5L1.5,26L26,1.5L50.5,26L26,50.5z"/>
+    </g>
+    <g id="ok">
+      <path id="ok-before" fill="none" stroke="#1AD4FF" stroke-width="2" stroke-miterlimit="10" d="M26,50.5 C12.4909,50.5,1.5,39.5091,1.5,26S12.4909,1.5,26,1.5S50.5,12.4909,50.5,26S39.5091,50.5,26,50.5z"/>
+      <path id="ok-after" fill="none" stroke="#FF33E2" stroke-width="2" stroke-miterlimit="10" d="M26,50.5 C12.4909,50.5,1.5,39.5091,1.5,26S12.4909,1.5,26,1.5S50.5,12.4909,50.5,26S39.5091,50.5,26,50.5z"/>
+    </g>
+  </svg>
 
+  <div id="js-content">
+    
+  </div>
 <body>
 </body>
 </html>
